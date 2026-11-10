@@ -29,6 +29,7 @@ function startRound(n) {
 	Input.tapLeft = Input.tapRight = false;
 	Input.leftHeld = Input.rightHeld = false;
 	if (bot.hist) bot.hist = []; // сброс «памяти» бота между раундами
+	pro.t = 0; pro.hist = []; // сброс таймера и памяти профи
 }
 
 // Играть раунд стратегией strategy(угол) до падения/конца; вернуть время и исход
@@ -69,16 +70,22 @@ const noob = (angle) => {
 	else if (a < -12) { Input.tapRight = true; noob.cool = 0.4; }
 };
 
-// Бот-«профи»: реакция 0.12 с, ~5.5 тапов/сек, мёртвая зона 5°
+// Бот-«профи»: реакция 0.05 с, ~8 тапов/сек, мёртвая зона 2°.
+// Живой профи знает ритм дрожи и гасит именно свой наклон: вычисляет дрожь
+// по формуле (sin от времени раунда) и отделяет её от наклона игрока
 const pro = (angle) => {
+	pro.t = (pro.t || 0) + DT;
 	pro.hist = pro.hist || [];
 	pro.hist.push(Ciceridis.swayAngle());
-	if (pro.hist.length > 7) pro.hist.shift(); // 7 кадров = 0.12 с задержки
+	if (pro.hist.length > 3) pro.hist.shift(); // 3 кадра = 0.05 с задержки
 	pro.cool = (pro.cool || 0) - DT;
 	if (pro.cool > 0) return;
-	const a = pro.hist[0];
-	if (a > 5) { Input.tapLeft = true; pro.cool = 0.18; }
-	else if (a < -5) { Input.tapRight = true; pro.cool = 0.18; }
+	const amp = Ciceridis.swayAmp();
+	const period = Ciceridis.swayPeriod();
+	const sway = Math.sin(pro.t / period * Math.PI * 2) * amp;
+	const a = pro.hist[0] - sway; // наклон игрока без дрожи
+	if (a > 2) { Input.tapLeft = true; pro.cool = 0.12; }
+	else if (a < -2) { Input.tapRight = true; pro.cool = 0.12; }
 };
 
 // Зажатие половины против начального наклона — проверка «автопилота»
